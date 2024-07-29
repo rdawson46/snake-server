@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-    program := tea.NewProgram(app.NewScreenSaver(), tea.WithAltScreen())
+    program := tea.NewProgram(app.NewScreenSaver(1), tea.WithAltScreen())
 
     if _, err := program.Run(); err != nil {
         fmt.Println(err.Error())
