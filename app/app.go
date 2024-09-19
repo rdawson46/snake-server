@@ -143,6 +143,7 @@ func getNewDirection(s snake) snake {
     return s
 }
 
+/*
 var Lines = [16]string{
     "┃",
     "┏",
@@ -161,6 +162,27 @@ var Lines = [16]string{
     "┏",
     "━",
 }
+*/
+
+var Lines = [16]string{
+    "╿",
+    "┍",
+    " ",
+    "┑",
+    "┚",
+    "╼",
+    "┒",
+    " ",
+    " ",
+    "┕",
+    "╽",
+    "┙",
+    "┖",
+    " ",
+    "┎",
+    "╾",
+}
+
 
 func getString(s snake, prev direction) string {
     return Lines[ s.d + prev * 4 ]
