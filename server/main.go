@@ -8,6 +8,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+    "errors"
 )
 
 /*
@@ -75,44 +76,65 @@ func (l *list) append(c connHandler) {
     l.tail = n
 }
 
-// rework with pointers, remove extra looping
-func (l *list) remove(i int) {
+// rework with pointers, seems unsafe
+func (l *list) remove(prev, curr *Node) {
     l.m.Lock()
     defer l.m.Unlock()
 
-    if l.head == nil {
+    if prev == nil && curr == l.head {
+        l.head = curr.next
+
         return
     }
 
-    if i == 0 {
-        if l.head == l.tail {
-            l.tail = nil
-        }
+    assert("prev is nil in remove", prev != nil)
+    assert("curr is nil in remove", curr != nil)
 
-        l.head = l.head.next
-        return
+    if curr == l.tail {
+        l.tail = prev
     }
 
-    var prev *Node = nil
-    curr := l.head
-    currIndex := 0
-
-    for currIndex != i && curr != nil {
-        prev = curr
-        curr = curr.next
-    }
-
-    if curr != nil {
-        return
-    }
-
-    assert("prev is nil", prev != nil)
     prev.next = curr.next
 }
 
+func (l *list) removeHead() {
+    l.m.Lock()
+    defer l.m.Unlock()
+
+    assert("head is nil in removeHead", l.head != nil)
+
+    if l.head == l.tail {
+        l.head = nil
+        l.tail = nil
+    }
+
+    l.head = l.head.next
+}
+
+// FIX: this will most likely cause errors in future
 func (l *list) cycle(s string) {
     // loop through list and i.connHandler(s)
     // if error remove at spot
+
+    var prev *Node = nil
+    curr := l.head
+
+    for curr != nil {
+        _, err := curr.value(s)
+
+        if err != nil {
+            if errors.Is(err, net.ErrClosed) {
+                if prev == nil && curr == l.head {
+                    l.removeHead()
+                } else {
+                    l.remove(prev, curr)
+                }
+            }
+        }
+
+        prev = curr
+        curr = curr.next
+    }
 }
 
 type server struct {
