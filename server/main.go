@@ -17,6 +17,9 @@ IDEA:
  - get connections
  - update connections after game tick
  - send updates to all connections
+
+ TODO:
+  - make looping output to send messages to connections
 */
 
 func assert(msg string, assertions ...bool) {
@@ -28,7 +31,7 @@ func assert(msg string, assertions ...bool) {
     }
 }
 
-type connHandler func(string) (int, error)
+type connHandler func([]byte) (int, error)
 
 type Node struct {
     value connHandler
@@ -63,7 +66,7 @@ func (l *list) append(c connHandler) {
     defer l.m.Unlock()
 
     if l.head == nil {
-        assert("tail isn't nil", l.tail != nil)
+        assert("tail isn't nil", l.tail == nil)
 
         l.head = n
         l.tail = n
@@ -111,8 +114,8 @@ func (l *list) removeHead() {
     l.head = l.head.next
 }
 
-// FIX: this will most likely cause errors in future
-func (l *list) cycle(s string) {
+// FIX: causes errors
+func (l *list) Write(b []byte) {
     // loop through list and i.connHandler(s)
     // if error remove at spot
 
@@ -120,7 +123,7 @@ func (l *list) cycle(s string) {
     curr := l.head
 
     for curr != nil {
-        _, err := curr.value(s)
+        _, err := curr.value(b)
 
         if err != nil {
             if errors.Is(err, net.ErrClosed) {
@@ -141,9 +144,13 @@ type server struct {
     s        net.Listener
     shutdown chan struct{}
     conns    chan net.Conn
+    l        list
     wg       sync.WaitGroup
+    t        time.Ticker
 }
 
+
+// HACK: change ticker delay
 func newServer() (*server, error) {
     s, err := net.Listen("tcp", "127.0.0.1:8000")
 
@@ -155,6 +162,8 @@ func newServer() (*server, error) {
         s: s,
         shutdown: make(chan struct{}),
         conns: make(chan net.Conn),
+        l: newList(),
+        t: *time.NewTicker(time.Second),
     }, nil
 }
 
@@ -196,44 +205,39 @@ func (s *server) handleConnections() {
                 return
             }
 
-            // FIX: remove the go thread and adjust
-            go s.handleConnection(conn)
+            handler := s.handleConnection(conn)
+            go s.l.append(handler)
         }
     }
 }
 
-/*
-    TODO:
-     - temp function
-     - will have to figure out how to have all active connections giving and recving updates
-     
-     Things to consider 
-      - how to store all connections
-      - how to update all efficiently
-      - how to get updates
-
-    IDEA:
-     - don't recv updates
-     - check if connection is still alive
-         - if so, send out game status
-*/
 func (s *server) handleConnection(c net.Conn) connHandler {
-    return func(s string) (int, error) {
-        return c.Write([]byte(s))
+    return func(b []byte) (int, error) {
+        return c.Write(b)
     }
 }
 
 func (s *server) listen() {
     defer s.wg.Done()
 
+    fmt.Println("Listening...")
+
     for {
         select {
         case <- s.shutdown:
             return
+        case <- s.t.C:
+            fmt.Println("Sending")
+            s.l.Write([]byte("Testing"))
         default:
             conn, err := s.s.Accept()
 
             if err != nil {
+                if errors.Is(err, net.ErrClosed) {
+                    fmt.Println("Connection closed")
+                    continue
+                }
+
                 fmt.Printf("Error with connection: %s\n", err.Error())
                 continue
             }
@@ -263,5 +267,6 @@ func run() {
 }
 
 func main() {
+    fmt.Println("starting up...")
     run()
 }

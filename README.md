@@ -3,6 +3,6 @@ Practice project for a future idea to display a screensaver across multiple term
 
 Run
 ```
-go run main.go
+go run basic/main.go
 ```
 for single screan
