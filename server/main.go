@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -8,7 +10,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-    "errors"
 )
 
 /*
@@ -27,6 +28,23 @@ func assert(msg string, assertions ...bool) {
             syscall.Kill(syscall.Getpid(), syscall.SIGINT)
         }
     }
+}
+
+type Packet struct {
+    Version string `json:"version"`
+    Length  int    `json:"length"`
+    Width   int    `json:"width"`
+    Page    string `json:"page"`
+}
+
+func encode(p Packet) ([]byte, error) {
+    return json.Marshal(p)
+}
+
+func decode(b []byte) (*Packet, error) {
+    p := &Packet{}
+    err := json.Unmarshal(b, p)
+    return p, err
 }
 
 type connHandler func([]byte) (int, error)
