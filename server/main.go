@@ -18,8 +18,6 @@ IDEA:
  - update connections after game tick
  - send updates to all connections
 
- TODO:
-  - make looping output to send messages to connections
 */
 
 func assert(msg string, assertions ...bool) {
@@ -114,11 +112,7 @@ func (l *list) removeHead() {
     l.head = l.head.next
 }
 
-// FIX: causes errors
 func (l *list) Write(b []byte) {
-    // loop through list and i.connHandler(s)
-    // if error remove at spot
-
     var prev *Node = nil
     curr := l.head
 
@@ -132,6 +126,8 @@ func (l *list) Write(b []byte) {
                 } else {
                     l.remove(prev, curr)
                 }
+
+                continue
             }
         }
 
@@ -150,7 +146,6 @@ type server struct {
 }
 
 
-// HACK: change ticker delay
 func newServer() (*server, error) {
     s, err := net.Listen("tcp", "127.0.0.1:8000")
 
@@ -199,6 +194,9 @@ func (s *server) handleConnections() {
         select {
         case <- s.shutdown:
             return
+        case <- s.t.C:
+            fmt.Println("Sending")
+            s.l.Write([]byte("Testing"))
         case conn, ok := <-s.conns:
             if !ok {
                 fmt.Println("Error with conns chan")
@@ -217,6 +215,7 @@ func (s *server) handleConnection(c net.Conn) connHandler {
     }
 }
 
+// TODO: stalling issue comes here from waiting for next connection
 func (s *server) listen() {
     defer s.wg.Done()
 
@@ -226,9 +225,6 @@ func (s *server) listen() {
         select {
         case <- s.shutdown:
             return
-        case <- s.t.C:
-            fmt.Println("Sending")
-            s.l.Write([]byte("Testing"))
         default:
             conn, err := s.s.Accept()
 
