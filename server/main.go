@@ -14,7 +14,7 @@ import (
 
 /*
 IDEA:
- - have tcp server and game
+ - have tcp server and game 
  - get connections
  - update connections after game tick
  - send updates to all connections
@@ -30,11 +30,17 @@ func assert(msg string, assertions ...bool) {
     }
 }
 
+type serverConfig struct {
+    Length  int
+    Width   int
+    maxConns int
+}
+
 type Packet struct {
     Version string `json:"version"`
     Length  int    `json:"length"`
     Width   int    `json:"width"`
-    Page    string `json:"page"`
+    Page    []byte `json:"page"`
 }
 
 func encode(p Packet) ([]byte, error) {
@@ -45,6 +51,15 @@ func decode(b []byte) (*Packet, error) {
     p := &Packet{}
     err := json.Unmarshal(b, p)
     return p, err
+}
+
+func makePacket(s *server, b []byte) Packet {
+    return Packet{
+        Version: "0.1",
+        Length: s.config.Length,
+        Width: s.config.Width,
+        Page: b,
+    }
 }
 
 type connHandler func([]byte) (int, error)
@@ -161,6 +176,7 @@ type server struct {
     l        list
     wg       sync.WaitGroup
     t        time.Ticker
+    config   serverConfig
 }
 
 
@@ -177,6 +193,11 @@ func newServer() (*server, error) {
         conns: make(chan net.Conn),
         l: newList(),
         t: *time.NewTicker(time.Second),
+        config: serverConfig{
+            Length: 2040,
+            Width: 2040,
+            maxConns: 10,
+        },
     }, nil
 }
 
