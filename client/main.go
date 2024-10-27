@@ -1,50 +1,28 @@
 package main
 
 import (
-    "net"
-    "fmt"
-    "time"
-    "os"
-    "sync"
+	"fmt"
+	"os"
+    "github.com/rdawson46/snake-server/client/ui"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
-func test_simple_client(id int, wg *sync.WaitGroup) {
-    defer wg.Done()
+/*
 
-    conn, err := net.Dial("tcp", "127.0.0.1:8000")
+IDEA:
+ - connect to server
+ - recv packet and decode
+ - find current screen position and mask over packet.Page
+ - display intersection
 
-    if err != nil {
-        fmt.Println("Hit error when trying to connect")
-        fmt.Println(err.Error())
-        os.Exit(1)
-    }
-
-    fmt.Printf("Listening with thread %d\n", id)
-
-    for range 5 {
-        b := make([]byte, 512)
-        n, err := conn.Read(b)
-
-        if err != nil {
-            fmt.Println("Hit error when listening")
-            fmt.Println(err.Error())
-            break
-        }
-
-        fmt.Printf("%d recv: %s\n", id, b[:n])
-    }
-}
+*/
 
 func main() {
-    t := time.NewTicker(time.Second * 2)
+    p := tea.NewProgram(ui.NewUi())
 
-    wg := &sync.WaitGroup{}
-
-    for i := range 10 {
-        go test_simple_client(i, wg)
-        wg.Add(1)
-        <- t.C
+    if _, err := p.Run(); err != nil {
+        fmt.Println("Error occurred: ", err.Error())
+        os.Exit(1)
     }
-
-    wg.Wait()
 }

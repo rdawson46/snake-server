@@ -1,7 +1,6 @@
-package main
+package server
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -12,13 +11,14 @@ import (
 	"time"
 )
 
+// TODO: impl packet into the writer
+
 /*
 IDEA:
  - have tcp server and game 
  - get connections
  - update connections after game tick
  - send updates to all connections
-
 */
 
 func assert(msg string, assertions ...bool) {
@@ -30,36 +30,10 @@ func assert(msg string, assertions ...bool) {
     }
 }
 
-type serverConfig struct {
+type ServerConfig struct {
     Length  int
     Width   int
     maxConns int
-}
-
-type Packet struct {
-    Version string `json:"version"`
-    Length  int    `json:"length"`
-    Width   int    `json:"width"`
-    Page    []byte `json:"page"`
-}
-
-func encode(p Packet) ([]byte, error) {
-    return json.Marshal(p)
-}
-
-func decode(b []byte) (*Packet, error) {
-    p := &Packet{}
-    err := json.Unmarshal(b, p)
-    return p, err
-}
-
-func makePacket(s *server, b []byte) Packet {
-    return Packet{
-        Version: "0.1",
-        Length: s.config.Length,
-        Width: s.config.Width,
-        Page: b,
-    }
 }
 
 type connHandler func([]byte) (int, error)
@@ -169,31 +143,31 @@ func (l *list) Write(b []byte) {
     }
 }
 
-type server struct {
+type Server struct {
     s        net.Listener
     shutdown chan struct{}
     conns    chan net.Conn
     l        list
     wg       sync.WaitGroup
     t        time.Ticker
-    config   serverConfig
+    Config   ServerConfig
 }
 
 
-func newServer() (*server, error) {
+func newServer() (*Server, error) {
     s, err := net.Listen("tcp", "127.0.0.1:8000")
 
     if err != nil {
         return nil, fmt.Errorf("failed to listen on server: %s", err.Error())
     }
 
-    return &server{
+    return &Server{
         s: s,
         shutdown: make(chan struct{}),
         conns: make(chan net.Conn),
         l: newList(),
         t: *time.NewTicker(time.Second),
-        config: serverConfig{
+        Config: ServerConfig{
             Length: 2040,
             Width: 2040,
             maxConns: 10,
@@ -201,13 +175,13 @@ func newServer() (*server, error) {
     }, nil
 }
 
-func (s *server) start() {
+func (s *Server) start() {
     s.wg.Add(2)
     go s.handleConnections()
     go s.listen()
 }
 
-func (s *server) stop() {
+func (s *Server) stop() {
     close(s.shutdown)
     s.s.Close()
 
@@ -226,7 +200,7 @@ func (s *server) stop() {
     }
 }
 
-func (s *server) handleConnections() {
+func (s *Server) handleConnections() {
     defer s.wg.Done()
 
     for {
@@ -248,14 +222,14 @@ func (s *server) handleConnections() {
     }
 }
 
-func (s *server) handleConnection(c net.Conn) connHandler {
+func (s *Server) handleConnection(c net.Conn) connHandler {
     return func(b []byte) (int, error) {
         return c.Write(b)
     }
 }
 
 // TODO: stalling issue comes here from waiting for next connection
-func (s *server) listen() {
+func (s *Server) listen() {
     defer s.wg.Done()
 
     fmt.Println("Listening...")
@@ -299,9 +273,4 @@ func run() {
     fmt.Println("shutting down...")
     s.stop()
     fmt.Println("stopped")
-}
-
-func main() {
-    fmt.Println("starting up...")
-    run()
 }
