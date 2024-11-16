@@ -16,7 +16,11 @@ type Ui struct {
     conn net.Conn
     p chan *packet.Packet
     d chan deadMsg
-    page [][]string
+    page string
+    serverWidth int
+    serverHeight int
+    width int
+    height int
 }
 
 func NewUi() Ui {
@@ -65,6 +69,8 @@ func (u Ui) listenOnConn() {
         if err != nil {
             if errors.Is(err, net.ErrClosed) {
                 u.d <- deadMsg{}
+            } else {
+                continue
             }
         }
 
@@ -80,17 +86,12 @@ func (u Ui) listenOnConn() {
 
 
 func handlePacket(ui Ui, p *packet.Packet) Ui {
-
     // check packet values
-    width := p.Width
-    length := p.Length
-
-
-    // split page init 2-D string array
-    page := p.Page
+    ui.serverWidth = p.Width
+    ui.serverHeight = p.Length
 
     // get current window size and get pos on screen
-
+    ui.page = p.Page
 
     // overlay page onto the 2-D string array
 
@@ -104,6 +105,10 @@ func (u Ui) Init() tea.Cmd {
 
 func (u Ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     switch msg := msg.(type) {
+    case tea.WindowSizeMsg:
+        u.height = msg.Height
+        u.width = msg.Width
+        return u, nil
     case deadMsg:
         return u, tea.Quit
     case tea.KeyMsg:
@@ -112,6 +117,7 @@ func (u Ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             return u, tea.Quit
         }
     case serverMsg:
+        u = handlePacket(u, msg.packet)
         return u, u.listen()
 
     }
@@ -119,4 +125,6 @@ func (u Ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     return u, nil
 }
 
-func (t Ui) View() string {return ""}
+func (u Ui) View() string {
+    return u.page
+}

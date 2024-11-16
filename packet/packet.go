@@ -9,7 +9,7 @@ type Packet struct {
     Version string `json:"version"`
     Length  int    `json:"length"`
     Width   int    `json:"width"`
-    Page    []byte `json:"page"`
+    Page    string `json:"page"`
 }
 
 func Encode(p Packet) ([]byte, error) {
@@ -22,7 +22,7 @@ func Decode(b []byte) (*Packet, error) {
     return p, err
 }
 
-func MakePacket(s *server.Server, b []byte) Packet {
+func MakePacket(s *server.Server, b string) Packet {
     return Packet{
         Version: "0.1",
         Length: s.Config.Length,
