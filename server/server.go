@@ -4,14 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
-	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+    "github.com/rdawson46/snake-server/packet"
 )
 
-// TODO: impl packet into the writer
+// TODO: impl packet into the server/writing
 
 /*
 IDEA:
@@ -39,7 +38,7 @@ type ServerConfig struct {
 type connHandler func([]byte) (int, error)
 
 type Node struct {
-    value connHandler
+    writer connHandler
     next  *Node
 }
 
@@ -51,7 +50,7 @@ type list struct {
 
 func newNode(c connHandler) *Node {
     return &Node{
-        value: c,
+        writer: c,
         next: nil,
     }
 }
@@ -120,11 +119,14 @@ func (l *list) removeHead() {
 }
 
 func (l *list) Write(b []byte) {
+    l.m.Lock()
+    defer l.m.Unlock()
+
     var prev *Node = nil
     curr := l.head
 
     for curr != nil {
-        _, err := curr.value(b)
+        _, err := curr.writer(b)
 
         if err != nil {
             if errors.Is(err, net.ErrClosed) {
@@ -133,7 +135,8 @@ func (l *list) Write(b []byte) {
                 } else {
                     l.remove(prev, curr)
                 }
-
+            } else {
+                fmt.Println("Error occurred:", err.Error())
                 continue
             }
         }
@@ -154,7 +157,7 @@ type Server struct {
 }
 
 
-func newServer() (*Server, error) {
+func NewServer() (*Server, error) {
     s, err := net.Listen("tcp", "127.0.0.1:8000")
 
     if err != nil {
@@ -175,13 +178,13 @@ func newServer() (*Server, error) {
     }, nil
 }
 
-func (s *Server) start() {
+func (s *Server) Start() {
     s.wg.Add(2)
     go s.handleConnections()
     go s.listen()
 }
 
-func (s *Server) stop() {
+func (s *Server) Stop() {
     close(s.shutdown)
     s.s.Close()
 
@@ -200,6 +203,21 @@ func (s *Server) stop() {
     }
 }
 
+func (s *Server) Write(b []byte) (int, error) {
+    // make packet 
+    // maybe return marshalled packet and send off bytes from here to list
+    full, err := s.makePacket(string(b))
+
+    if err != nil {
+        fmt.Println("Error occured when writing:", err.Error())
+        return 0, err
+    }
+
+    // write to list
+    s.l.Write(full)
+    return len(full), nil
+}
+
 func (s *Server) handleConnections() {
     defer s.wg.Done()
 
@@ -209,6 +227,15 @@ func (s *Server) handleConnections() {
             return
         case <- s.t.C:
             fmt.Println("Sending")
+            // TODO: use packets and send them here won't work here
+
+            /*
+            - remove tick and allow the game to write to this server
+                - create a Write function for the server
+            - make List public and allow for game to write straight to list
+            */
+
+
             s.l.Write([]byte("Testing"))
         case conn, ok := <-s.conns:
             if !ok {
@@ -256,21 +283,14 @@ func (s *Server) listen() {
     }
 }
 
-func run() {
-    s, err := newServer()
-
-    if err != nil {
-        fmt.Printf("Error: %s", err.Error())
-        os.Exit(1)
+func (s *Server) makePacket(b string) ([]byte, error) {
+    p := packet.Packet{
+        Version: "0.1",
+        Length: s.Config.Length,
+        Width: s.Config.Width,
+        Page: b,
     }
 
-    s.start()
-
-    sigChan := make(chan os.Signal, 1)
-    signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-    <- sigChan
-
-    fmt.Println("shutting down...")
-    s.stop()
-    fmt.Println("stopped")
+    return packet.Encode(p)
 }
+

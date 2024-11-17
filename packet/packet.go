@@ -2,7 +2,6 @@ package packet
 
 import (
     "encoding/json"
-    "github.com/rdawson46/snake-server/server"
 )
 
 type Packet struct {
@@ -20,14 +19,5 @@ func Decode(b []byte) (*Packet, error) {
     p := &Packet{}
     err := json.Unmarshal(b, p)
     return p, err
-}
-
-func MakePacket(s *server.Server, b string) Packet {
-    return Packet{
-        Version: "0.1",
-        Length: s.Config.Length,
-        Width: s.Config.Width,
-        Page: b,
-    }
 }
 

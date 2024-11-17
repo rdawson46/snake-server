@@ -26,6 +26,9 @@ type Ui struct {
 func NewUi() Ui {
     conn, err := net.Dial("tcp", "127.0.0.1:8000")
 
+    d := make(chan deadMsg)
+    p := make(chan *packet.Packet)
+
     if err != nil {
         fmt.Println("Error when connection: ", err.Error())
         os.Exit(1)
@@ -33,6 +36,13 @@ func NewUi() Ui {
 
     return Ui{
         conn: conn,
+        page: "",
+        p: p,
+        d: d,
+        serverWidth: 0,
+        serverHeight: 0,
+        width: 0,
+        height: 0,
     }
 }
 
@@ -86,14 +96,11 @@ func (u Ui) listenOnConn() {
 
 
 func handlePacket(ui Ui, p *packet.Packet) Ui {
-    // check packet values
     ui.serverWidth = p.Width
     ui.serverHeight = p.Length
 
-    // get current window size and get pos on screen
+    // will need to figure out where in the page should be shown
     ui.page = p.Page
-
-    // overlay page onto the 2-D string array
 
     return ui
 }
