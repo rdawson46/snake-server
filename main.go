@@ -5,11 +5,18 @@ import (
 	"os"
     "syscall"
     "os/signal"
+    tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/rdawson46/snake-server/server"
+	"github.com/rdawson46/snake-server/game"
 )
 
-// main func for running server
+/* 
+TODO:
+ - get server screen size
+ - apply location to client
+*/
+
 func main() {
     s, err := server.NewServer()
 
@@ -19,6 +26,15 @@ func main() {
     }
 
     s.Start()
+
+    go func() {
+        program := tea.NewProgram(game.NewScreenSaver(2), tea.WithOutput(s))
+
+        if _, err := program.Run(); err != nil {
+            fmt.Println("Error with model:", err.Error())
+            os.Kill.Signal()
+        }
+    }()
 
     sigChan := make(chan os.Signal, 1)
     signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
